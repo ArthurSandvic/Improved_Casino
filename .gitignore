@@ -1,0 +1,42 @@
+# --- OS & editors ---
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
+# --- Secrets (never commit) ---
+.env
+.env.local
+.env.*.local
+!.env.example
+
+# --- Java / Maven ---
+**/target/
+*.class
+*.jar
+!.mvn/wrapper/maven-wrapper.jar
+
+# --- Node ---
+**/node_modules/
+**/dist/
+**/.vite/
+
+# --- Python ---
+**/__pycache__/
+**/*.py[cod]
+**/.venv/
+**/venv/
+**/*.egg-info/
+
+# --- Local DB / runtime ---
+**/*.db
+**/*.sqlite
+**/*.sqlite3
+
+# --- Logs & archives ---
+*.log
+*.zip
+*.tgz
