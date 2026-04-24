@@ -7,30 +7,50 @@ import { AdminPage } from '../features/admin/AdminPage'
 import { ProfilePage } from '../features/profile/ProfilePage'
 import { WelcomePage } from '../features/welcome/WelcomePage'
 import { ApiClient, type UserProfile } from '../shared/api/client'
+import { LoginPage } from '../features/auth/LoginPage'
 import { StolotoLogo } from '../shared/ui/StolotoLogo'
+import {
+  clearPersistedShellUi,
+  readInitialShellFromStorage,
+  readPersistedShellUi,
+  writePersistedShellUi,
+} from '../shared/shellUiPersistence'
 
 type View = 'lobby' | 'room' | 'admin' | 'profile'
 type GameMode = 'opencase' | 'mountain' | 'bank'
 
+type ShellBootstrap =
+  | { kind: 'room' }
+  | { kind: 'admin' }
+  | { kind: 'adminRejected' }
+  | { kind: 'profile' }
+  | { kind: 'lobby' }
+
+const initialPath = typeof window !== 'undefined' ? window.location.pathname : '/'
+const initialShellStored = readInitialShellFromStorage(initialPath)
+
 function resolveViewFromPath(pathname: string): View {
   if (pathname.startsWith('/admin')) return 'admin'
   if (pathname.startsWith('/profile')) return 'profile'
+  if (pathname.startsWith('/login')) return 'lobby'
   return 'lobby'
 }
 
-let hasSeenWelcomeThisLoad = false
+type AuthPhase = 'loading' | 'login' | 'ready'
 
 export function App() {
   const api = useMemo(() => new ApiClient(), [])
+  const [authPhase, setAuthPhase] = useState<AuthPhase>('loading')
   const [view, setView] = useState<View>(() => resolveViewFromPath(window.location.pathname))
-  const [gameMode, setGameMode] = useState<GameMode>('opencase')
+  const [gameMode, setGameMode] = useState<GameMode>(() => initialShellStored?.gameMode ?? 'opencase')
   const [roomId, setRoomId] = useState<number | null>(null)
   const [profile, setProfile] = useState<UserProfile | null>(null)
   const [toast, setToast] = useState<{ message: string; type: string } | null>(null)
   const [showWelcome, setShowWelcome] = useState<boolean>(() => {
-    const p = window.location.pathname
+    const p = initialPath
     if (p.startsWith('/admin') || p.startsWith('/profile')) return false
-    return !hasSeenWelcomeThisLoad
+    if (initialShellStored && !initialShellStored.showWelcome) return false
+    return true
   })
   const [userId, setUserId] = useState<number | null>(null)
   const [userRole, setUserRole] = useState<string | null>(null)
@@ -41,7 +61,6 @@ export function App() {
   const bankUrl = import.meta.env.VITE_BANK_APP_URL || '/bank/'
 
   const handleSelectGame = (mode: GameMode) => {
-    hasSeenWelcomeThisLoad = true
     setShowWelcome(false)
     setGameMode(mode)
     if (mode === 'opencase' && view !== 'room') {
@@ -52,46 +71,192 @@ export function App() {
     }
   }
 
+  const loadSessionData = async (uid: number, role: string | null): Promise<ShellBootstrap> => {
+    const [active, userProfile] = await Promise.all([
+      api.getActiveRoom(uid),
+      api.getUserProfile(uid),
+    ])
+    if (active.room_id) {
+      setRoomId(active.room_id)
+      setView('room')
+      setProfile(userProfile)
+      return { kind: 'room' }
+    }
+    setRoomId(null)
+    const path = window.location.pathname
+    if (path.startsWith('/admin')) {
+      if (role !== 'ADMIN') {
+        if (path.startsWith('/admin')) window.history.replaceState({}, '', '/')
+        setView('lobby')
+        setProfile(userProfile)
+        return { kind: 'adminRejected' }
+      }
+      setView('admin')
+      setProfile(userProfile)
+      return { kind: 'admin' }
+    }
+    if (path.startsWith('/profile')) {
+      setView('profile')
+      setProfile(userProfile)
+      return { kind: 'profile' }
+    }
+    setView('lobby')
+    setProfile(userProfile)
+    return { kind: 'lobby' }
+  }
+
+  const synchronizeShellAfterSession = (boot: ShellBootstrap) => {
+    if (boot.kind === 'room') {
+      setShowWelcome(false)
+      setGameMode('opencase')
+      return
+    }
+    if (boot.kind === 'admin') {
+      setShowWelcome(false)
+      setGameMode('opencase')
+      return
+    }
+    if (boot.kind === 'adminRejected') {
+      setShowWelcome(true)
+      setGameMode('opencase')
+      return
+    }
+    if (boot.kind === 'profile') {
+      setShowWelcome(false)
+      setGameMode('opencase')
+      return
+    }
+    const stored = readPersistedShellUi()
+    if (stored) {
+      setGameMode(stored.gameMode)
+      setShowWelcome(stored.showWelcome)
+      return
+    }
+    setShowWelcome(true)
+    setGameMode('opencase')
+  }
+
+  /** Чтобы форма входа была на предсказуемом URL: откройте вручную http://…:8080/login */
+  useEffect(() => {
+    if (authPhase !== 'login') return
+    if (window.location.pathname !== '/login') {
+      window.history.replaceState({}, '', '/login')
+    }
+  }, [authPhase])
+
+  useEffect(() => {
+    if (authPhase !== 'ready') return
+    if (window.location.pathname === '/login') {
+      window.history.replaceState({}, '', '/')
+    }
+  }, [authPhase])
+
+  useEffect(() => {
+    if (authPhase !== 'ready' || userId === null) return
+    writePersistedShellUi({ gameMode, showWelcome })
+  }, [authPhase, userId, gameMode, showWelcome])
+
   useEffect(() => {
     let cancelled = false
-    const bootstrap = async () => {
-      let lastError: unknown = null
-      for (let attempt = 0; attempt < 4; attempt += 1) {
-        if (cancelled) return
-        try {
-          const username = import.meta.env.VITE_AUTH_USERNAME || 'aleksey_m'
-          const password = import.meta.env.VITE_AUTH_PASSWORD || 'password'
-          const session = await api.login(username, password)
-          if (cancelled) return
-          setUserId(session.userId)
-          setUserRole(session.role ?? null)
-          const [active, userProfile] = await Promise.all([
-            api.getActiveRoom(session.userId),
-            api.getUserProfile(session.userId),
-          ])
-          if (cancelled) return
-          if (active.room_id) {
-            setRoomId(active.room_id)
-            setView('room')
-          }
-          setProfile(userProfile)
-          return
-        } catch (error) {
-          lastError = error
-          await new Promise((resolve) => window.setTimeout(resolve, 800))
-        }
+    const tryRestoreSession = async () => {
+      const token = ApiClient.getAuthToken()
+      if (!token) {
+        if (!cancelled) setAuthPhase('login')
+        return
       }
+      let me: Awaited<ReturnType<ApiClient['getSession']>>
       try {
-        throw lastError
+        me = await api.getSession()
       } catch {
-        if (!cancelled) {
-          setToast({ message: 'Не удалось выполнить вход в backend', type: 'error' })
-        }
+        ApiClient.setAuthToken(null)
+        if (!cancelled) setAuthPhase('login')
+        return
       }
+      if (cancelled) return
+      setUserId(me.userId)
+      setUserRole(me.role ?? null)
+      try {
+        const boot = await loadSessionData(me.userId, me.role ?? null)
+        if (cancelled) return
+        synchronizeShellAfterSession(boot)
+      } catch {
+        // Токен валиден, но /active-room или /profile упал — не сбрасывать сессию (иначе «выбрасывает на логин»).
+        if (cancelled) return
+        setRoomId(null)
+        setView('lobby')
+        setShowWelcome(true)
+        setGameMode('opencase')
+      }
+      if (!cancelled) setAuthPhase('ready')
     }
-    bootstrap().catch(() => undefined)
+    tryRestoreSession().catch(() => {
+      if (!cancelled) setAuthPhase('login')
+    })
     return () => { cancelled = true }
   }, [api])
+
+  const handleLogin = async (username: string, password: string) => {
+    const session = await api.login(username, password)
+    clearPersistedShellUi()
+    setUserId(session.userId)
+    setUserRole(session.role ?? null)
+    const [roomResult, profileResult] = await Promise.allSettled([
+      api.getActiveRoom(session.userId),
+      api.getUserProfile(session.userId),
+    ])
+    const active = roomResult.status === 'fulfilled' ? roomResult.value : { room_id: null }
+    const userProfile = profileResult.status === 'fulfilled' ? profileResult.value : null
+    if (active.room_id) {
+      setRoomId(active.room_id)
+      setView('room')
+      setShowWelcome(false)
+      setGameMode('opencase')
+    } else {
+      setRoomId(null)
+      const path = window.location.pathname
+      if (path.startsWith('/admin')) {
+        if ((session.role ?? null) !== 'ADMIN') {
+          if (path.startsWith('/admin')) window.history.replaceState({}, '', '/')
+          setView('lobby')
+          setShowWelcome(true)
+          setGameMode('opencase')
+        } else {
+          setView('admin')
+          setShowWelcome(false)
+          setGameMode('opencase')
+        }
+      } else if (path.startsWith('/profile')) {
+        setView('profile')
+        setShowWelcome(false)
+        setGameMode('opencase')
+      } else {
+        setView('lobby')
+        setShowWelcome(true)
+        setGameMode('opencase')
+      }
+    }
+    setProfile(userProfile)
+    if (window.location.pathname === '/login') {
+      window.history.replaceState({}, '', '/')
+    }
+    setAuthPhase('ready')
+  }
+
+  const handleLogout = () => {
+    ApiClient.setAuthToken(null)
+    clearPersistedShellUi()
+    setUserId(null)
+    setUserRole(null)
+    setProfile(null)
+    setRoomId(null)
+    setView('lobby')
+    setGameMode('opencase')
+    setShowWelcome(true)
+    setAuthPhase('login')
+    if (window.location.pathname !== '/login') {
+      window.history.pushState({}, '', '/login')
+    }
+  }
 
   useEffect(() => {
     const onPopstate = () => {
@@ -99,13 +264,20 @@ export function App() {
         setView('room')
         return
       }
-      const nextView = resolveViewFromPath(window.location.pathname)
+      const path = window.location.pathname
+      const nextView = resolveViewFromPath(path)
+      if (nextView === 'admin' && userRole !== 'ADMIN') {
+        if (path.startsWith('/admin')) window.history.replaceState({}, '', '/')
+        setView('lobby')
+        setRoomId(null)
+        return
+      }
       setView(nextView)
       if (nextView !== 'room') setRoomId(null)
     }
     window.addEventListener('popstate', onPopstate)
     return () => window.removeEventListener('popstate', onPopstate)
-  }, [roomId])
+  }, [roomId, userRole])
 
   const navigateTo = (path: string, nextView: View, force = false) => {
     if (!force && roomId && nextView !== 'room') {
@@ -118,43 +290,34 @@ export function App() {
   }
 
   const handleOpenProfileFromWelcome = () => {
-    hasSeenWelcomeThisLoad = true
     setShowWelcome(false)
     setGameMode('opencase')
     navigateTo('/profile', 'profile', true)
   }
 
   const handleOpenAdminFromWelcome = () => {
-    hasSeenWelcomeThisLoad = true
     setShowWelcome(false)
     setGameMode('opencase')
     navigateTo('/admin', 'admin', true)
   }
-
-  const openPlatformAdmin = () => {
-    setGameMode('opencase')
-    navigateTo('/admin', 'admin', true)
-  }
-
-  useEffect(() => {
-    const onMsg = (e: MessageEvent) => {
-      if (e.origin !== window.location.origin) return
-      if (e.data?.type !== 'OPEN_SERVER_ADMIN') return
-      setGameMode('opencase')
-      if (window.location.pathname !== '/admin') {
-        window.history.pushState({}, '', '/admin')
-      }
-      setView('admin')
-    }
-    window.addEventListener('message', onMsg)
-    return () => window.removeEventListener('message', onMsg)
-  }, [])
 
   // Removed synchronous setState effect that was triggering cascading renders
 
   const showToast = (message: string, type = 'info') => {
     setToast({ message, type })
     window.setTimeout(() => setToast(null), 3500)
+  }
+
+  if (authPhase === 'loading') {
+    return (
+      <div className="welcome-layout">
+        <p style={{ textAlign: 'center', marginTop: '20vh', color: 'var(--text-soft)' }}>Загрузка…</p>
+      </div>
+    )
+  }
+
+  if (authPhase === 'login') {
+    return <LoginPage login={handleLogin} />
   }
 
   if (showWelcome) {
@@ -164,6 +327,7 @@ export function App() {
         onOpenProfile={handleOpenProfileFromWelcome}
         onOpenAdmin={handleOpenAdminFromWelcome}
         showAdminEntry={userRole === 'ADMIN'}
+        onLogout={handleLogout}
         bonusBalance={profile?.bonus_balance ?? 0}
         userId={userId}
       />
@@ -190,11 +354,9 @@ export function App() {
               </button>
             )}
             <button className="btn btn-secondary" onClick={() => setShowWelcome(true)}>Игры</button>
-            {userRole === 'ADMIN' && (
-              <button type="button" className="btn btn-secondary" onClick={() => openPlatformAdmin()}>
-                Админ-панель
-              </button>
-            )}
+            <button type="button" className="btn btn-secondary" onClick={() => handleLogout()}>
+              Выйти
+            </button>
           </div>
         </header>
       )}
@@ -236,7 +398,9 @@ export function App() {
             toast={showToast}
           />
         )}
-        {gameMode === 'opencase' && view === 'admin' && <AdminPage onBack={() => navigateTo('/', 'lobby')} toast={showToast} />}
+        {userRole === 'ADMIN' && gameMode === 'opencase' && view === 'admin' && (
+          <AdminPage onBack={() => navigateTo('/', 'lobby')} toast={showToast} />
+        )}
 
         {gameMode === 'mountain' && (
           <section className="external-game-shell shell-card">
@@ -245,11 +409,6 @@ export function App() {
                 <h2>Mountain-hiking-minigame</h2>
                 <p>Модуль подключен в единую Stoloto-платформу.</p>
               </div>
-              {userRole === 'ADMIN' && (
-                <button type="button" className="btn btn-secondary" onClick={() => openPlatformAdmin()}>
-                  Админ-панель платформы
-                </button>
-              )}
             </div>
             <iframe title="Mountain-hiking-minigame" src={mountainUrl} className="external-game-frame" />
           </section>
@@ -262,11 +421,6 @@ export function App() {
                 <h2>Bank-minigame</h2>
                 <p>Модуль подключен в единую Stoloto-платформу.</p>
               </div>
-              {userRole === 'ADMIN' && (
-                <button type="button" className="btn btn-secondary" onClick={() => openPlatformAdmin()}>
-                  Админ-панель платформы
-                </button>
-              )}
             </div>
             <iframe title="Bank-minigame" src={bankUrl} className="external-game-frame" />
           </section>

@@ -9,5 +9,9 @@ public record AdminConfigDto(
     Boolean defaultBoostEnabled,
     Long defaultBoostCost,
     BigDecimal defaultBoostMultiplier,
-    Integer waitingTimerSeconds
+    Integer waitingTimerSeconds,
+    Integer mountainMinBet,
+    Integer mountainMaxBet,
+    Integer bankFilterEntryFee,
+    Integer bankFilterSeats
 ) {}

@@ -43,6 +43,10 @@ type BackendAdminConfig = {
   defaultBoostCost: number
   defaultBoostMultiplier: number
   waitingTimerSeconds?: number
+  mountainMinBet?: number
+  mountainMaxBet?: number
+  bankFilterEntryFee?: number
+  bankFilterSeats?: number
 }
 
 type BackendConfigValidation = {
@@ -105,6 +109,11 @@ export type AdminConfig = {
   boost_cost: number
   boost_multiplier: number
   bot_win_policy: 'return_pool' | 'burn'
+  waiting_timer_seconds?: number
+  mountain_min_bet?: number
+  mountain_max_bet?: number
+  bank_filter_entry_fee?: number
+  bank_filter_seats?: number
 }
 
 export type ConfigValidation = {
@@ -263,7 +272,10 @@ export class ApiClient {
       'Content-Type': 'application/json',
       ...((options.headers as Record<string, string> | undefined) ?? {}),
     }
-    if (ApiClient.authToken && !path.startsWith('/api/auth/')) {
+    const skipBearer =
+      path === '/api/auth/login'
+      || path === '/api/auth/register'
+    if (ApiClient.authToken && !skipBearer) {
       headers.Authorization = `Bearer ${ApiClient.authToken}`
     }
 
@@ -277,20 +289,39 @@ export class ApiClient {
 
     const response = await fetch(`${this.apiBase}${path}`, init)
     const contentType = response.headers.get('content-type') ?? ''
-    const payload = contentType.includes('application/json')
-      ? await response.json()
-      : await response.text()
+    const text = await response.text()
 
     if (!response.ok) {
-      const normalizedPayload = payload as { detail?: string; message?: string; error?: string; code?: string }
+      const normalizedPayload = (() => {
+        if (!text.trim()) {
+          return {} as { detail?: string; message?: string; error?: string; code?: string }
+        }
+        if (contentType.includes('application/json') || text.trim().startsWith('{') || text.trim().startsWith('[')) {
+          try {
+            return JSON.parse(text) as { detail?: string; message?: string; error?: string; code?: string }
+          } catch {
+            return { error: text } as { error?: string }
+          }
+        }
+        return { error: text } as { error?: string }
+      })()
       const message = normalizedPayload?.detail
         ?? normalizedPayload?.message
         ?? normalizedPayload?.error
-        ?? (typeof payload === 'string' && payload.trim() ? payload : null)
         ?? `Request failed (${response.status})`
       throw new Error(message)
     }
-    return payload as T
+
+    if (response.status === 204 || response.status === 205) {
+      return null as T
+    }
+    if (!text.trim()) {
+      return null as T
+    }
+    if (contentType.includes('application/json') || text.trim().startsWith('{') || text.trim().startsWith('[')) {
+      return JSON.parse(text) as T
+    }
+    return text as T
   }
 
   async login(username: string, password: string) {
@@ -308,6 +339,27 @@ export class ApiClient {
     })
     ApiClient.setAuthToken(response.token)
     return response
+  }
+
+  async getSession() {
+    return this.request<{
+      token: string | null
+      userId: number
+      username: string
+      role: string
+      vipTier: string
+      balance: number
+      reservedBalance: number
+    }>('/api/auth/me')
+  }
+
+  async getPublicGameDefaults() {
+    return this.request<{
+      mountainMinBet: number
+      mountainMaxBet: number
+      bankFilterEntryFee: number
+      bankFilterSeats: number
+    }>('/api/public/game-defaults')
   }
 
   async getRoom(roomId: number) {
@@ -333,8 +385,8 @@ export class ApiClient {
   }
 
   async getActiveRoom(userId: number) {
-    const room = await this.request<BackendRoom | ''>(`/api/users/${userId}/active-room`)
-    if (typeof room === 'string' || !room) return { room_id: null }
+    const room = await this.request<BackendRoom | null>(`/api/users/${userId}/active-room`)
+    if (room == null || typeof room === 'string') return { room_id: null }
     return { room_id: room.id }
   }
 
@@ -417,6 +469,11 @@ export class ApiClient {
       boost_cost: config.defaultBoostCost,
       boost_multiplier: Number(config.defaultBoostMultiplier || 0),
       bot_win_policy: 'return_pool',
+      waiting_timer_seconds: config.waitingTimerSeconds ?? 60,
+      mountain_min_bet: config.mountainMinBet ?? 50,
+      mountain_max_bet: config.mountainMaxBet ?? 400,
+      bank_filter_entry_fee: config.bankFilterEntryFee ?? 100,
+      bank_filter_seats: config.bankFilterSeats ?? 6,
     } as AdminConfig
   }
 
@@ -430,6 +487,11 @@ export class ApiClient {
         defaultBoostEnabled: payload.boost_enabled,
         defaultBoostCost: payload.boost_cost,
         defaultBoostMultiplier: payload.boost_multiplier,
+        waitingTimerSeconds: payload.waiting_timer_seconds,
+        mountainMinBet: payload.mountain_min_bet,
+        mountainMaxBet: payload.mountain_max_bet,
+        bankFilterEntryFee: payload.bank_filter_entry_fee,
+        bankFilterSeats: payload.bank_filter_seats,
       },
     })
     return {
@@ -437,7 +499,7 @@ export class ApiClient {
       risk_level: validation.errors.length > 0 ? 'HIGH' : validation.warnings.length > 0 ? 'MEDIUM' : 'LOW',
       warnings: validation.warnings || [],
       errors: validation.errors || [],
-      explanation: validation.errors[0] || validation.warnings[0] || 'Configuration looks valid',
+      explanation: validation.errors[0] || validation.warnings[0] || 'Настройки выглядят допустимыми.',
     } as ConfigValidation
   }
 
@@ -451,6 +513,11 @@ export class ApiClient {
         defaultBoostEnabled: payload.boost_enabled,
         defaultBoostCost: payload.boost_cost,
         defaultBoostMultiplier: payload.boost_multiplier,
+        waitingTimerSeconds: payload.waiting_timer_seconds,
+        mountainMinBet: payload.mountain_min_bet,
+        mountainMaxBet: payload.mountain_max_bet,
+        bankFilterEntryFee: payload.bank_filter_entry_fee,
+        bankFilterSeats: payload.bank_filter_seats,
       },
     })
   }
@@ -479,6 +546,9 @@ export class ApiClient {
       payload: {
         ...(payload.max_players !== undefined ? { maxSlots: payload.max_players } : {}),
         ...(payload.entry_fee !== undefined ? { entryFee: payload.entry_fee } : {}),
+        ...(payload.prize_pool_pct !== undefined ? { prizePoolPct: Math.round(payload.prize_pool_pct * 100) } : {}),
+        ...(payload.boost_enabled !== undefined ? { boostEnabled: payload.boost_enabled } : {}),
+        ...(payload.boost_cost !== undefined ? { boostCost: payload.boost_cost } : {}),
         ...(payload.boost_multiplier !== undefined ? { boostMultiplier: payload.boost_multiplier } : {}),
       },
     })

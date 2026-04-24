@@ -40,8 +40,9 @@ public class SecurityConfig {
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers(org.springframework.http.HttpMethod.POST, "/api/auth/login").permitAll()
                 .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/rooms", "/api/rooms/*").permitAll()
+                .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/public/**").permitAll()
                 .requestMatchers(
-                    "/", "/profile", "/admin", "/index.html", "/assets/**", "/favicon.ico",
+                    "/", "/login", "/profile", "/admin", "/index.html", "/assets/**", "/favicon.ico",
                     "/mountain/**", "/bank/**", "/instruct_photos/**"
                 ).permitAll()
                 .requestMatchers("/swagger-ui/**", "/swagger-ui.html", "/v3/api-docs/**").permitAll()

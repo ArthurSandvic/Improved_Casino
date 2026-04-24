@@ -1,6 +1,6 @@
 # FSP Casino — единая платформа мини-игр
 
-**Репозиторий:** [github.com/asCo1oC/fsp-casino-monorepo](https://github.com/asCo1oC/fsp-casino-monorepo)
+**Репозиторий:** укажите URL своего клона (см. [документацию по публикации](docs/GIT_PUBLISHING.md)). Пример: [github.com/asCo1oC/fsp-casino-monorepo](https://github.com/asCo1oC/fsp-casino-monorepo)
 
 ## Зачем этот проект
 
@@ -42,6 +42,14 @@ docker compose up --build
 | http://localhost:8080/swagger-ui | OpenAPI |
 
 Тестовые логины, описание API, WebSocket и Redis: [**FSP-backend-casino/README.md**](FSP-backend-casino/README.md).
+
+## Документация
+
+| Документ | Содержание |
+|----------|------------|
+| [docs/GIT_PUBLISHING.md](docs/GIT_PUBLISHING.md) | Пуш в **другой** remote / другой GitHub-аккаунт, SSH для двух аккаунтов |
+| [docs/DEPLOY_VPS.md](docs/DEPLOY_VPS.md) | Развёртывание на **VPS** (Docker, `.env`, firewall, HTTPS, обновления, бэкапы) |
+| [docs/SECURITY.md](docs/SECURITY.md) | Секреты, что не класть в репозиторий |
 
 ## Обновление фронтендов в Java `static/`
 

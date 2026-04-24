@@ -105,33 +105,6 @@ function setStoredJwt(token) {
   if (token) window.localStorage.setItem('casino_jwt', token);
 }
 
-function roleFromStoredJwt() {
-  try {
-    const t = getStoredJwt();
-    if (!t) return null;
-    const parts = t.split('.');
-    if (parts.length < 2) return null;
-    const b64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
-    const pad = b64.length % 4 ? '='.repeat(4 - (b64.length % 4)) : '';
-    const payload = JSON.parse(atob(b64 + pad));
-    return payload.role || null;
-  } catch {
-    return null;
-  }
-}
-
-function openServerAdminPlatform() {
-  try {
-    if (window.parent && window.parent !== window) {
-      window.parent.postMessage({ type: 'OPEN_SERVER_ADMIN' }, window.location.origin);
-    } else {
-      window.location.assign('/admin');
-    }
-  } catch {
-    window.location.assign('/admin');
-  }
-}
-
 async function apiRequest(path, options = {}) {
   const headers = {
     'Content-Type': 'application/json',
@@ -152,15 +125,16 @@ async function apiRequest(path, options = {}) {
 async function ensureAuth() {
   const token = getStoredJwt();
   if (token) return token;
-  const login = await apiRequest('/api/auth/login', {
-    method: 'POST',
-    body: JSON.stringify({
-      username: 'aleksey_m',
-      password: 'password',
-    }),
-  });
-  setStoredJwt(login.token);
-  return login.token;
+  try {
+    if (window.top && window.top !== window) {
+      window.top.location.assign('/login');
+    } else {
+      window.location.assign('/login');
+    }
+  } catch {
+    window.location.assign('/login');
+  }
+  throw new Error('Требуется вход через главное приложение');
 }
 
 const MOUNTAIN_INSTRUCTION = {
@@ -488,7 +462,6 @@ function CreateRoomModal({ open, config, setConfig, onClose, onSubmit }) {
 export default function App() {
   const [balance, setBalance] = useState(0);
   const [walletReady, setWalletReady] = useState(false);
-  const [isServerAdmin, setIsServerAdmin] = useState(false);
   const [rooms, setRooms] = useState([
     roomTemplate(101, 'Горная комната Gold', 300, 4),
     roomTemplate(102, 'Горная комната Silver', 150, 5),
@@ -574,7 +547,18 @@ export default function App() {
     await ensureAuth();
     const wallet = await apiRequest('/api/wallet/me');
     setBalance(Number(wallet.balance || 0));
-    setIsServerAdmin(roleFromStoredJwt() === 'ADMIN');
+    try {
+      const d = await apiRequest('/api/public/game-defaults');
+      const minB = Number(d.mountainMinBet) || 50;
+      const maxB = Number(d.mountainMaxBet) || 400;
+      setCreateConfig((prev) => ({
+        ...prev,
+        minBet: String(Math.max(10, minB)),
+        maxBet: String(Math.max(minB + 10, maxB)),
+      }));
+    } catch {
+      /* ignore */
+    }
     setWalletReady(true);
   }
 
@@ -1106,11 +1090,6 @@ export default function App() {
                 <button type="button" className="action secondary" onClick={() => setInstructionOpen(true)}>
                   Инструкция
                 </button>
-                {isServerAdmin && (
-                  <button type="button" className="action secondary" onClick={openServerAdminPlatform}>
-                    Админ платформы
-                  </button>
-                )}
               </div>
             </header>
             <LobbyView
@@ -1144,11 +1123,6 @@ export default function App() {
                 <button type="button" className="action secondary" onClick={() => setInstructionOpen(true)}>
                   Инструкция
                 </button>
-                {isServerAdmin && (
-                  <button type="button" className="action secondary" onClick={openServerAdminPlatform}>
-                    Админ платформы
-                  </button>
-                )}
               </div>
             </header>
 

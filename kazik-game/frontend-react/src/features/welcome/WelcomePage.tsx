@@ -7,6 +7,7 @@ type WelcomePageProps = {
   onOpenProfile: () => void
   onOpenAdmin?: () => void
   showAdminEntry?: boolean
+  onLogout?: () => void
   bonusBalance: number
   userId: number | null
 }
@@ -16,6 +17,7 @@ export function WelcomePage({
   onOpenProfile,
   onOpenAdmin,
   showAdminEntry,
+  onLogout,
   bonusBalance,
   userId,
 }: WelcomePageProps) {
@@ -34,6 +36,11 @@ export function WelcomePage({
             Админ-панель
           </button>
         )}
+        {onLogout && (
+          <button type="button" className="btn btn-secondary" onClick={onLogout}>
+            Выйти
+          </button>
+        )}
       </div>
       <div className="welcome-content shell-card">
         <StolotoLogo className="welcome-logo mx-auto mb-4" />
@@ -43,29 +50,47 @@ export function WelcomePage({
         </p>
 
         <div className="game-picks">
-          <div className="welcome-feature shell-card shell-card--inner">
-            <div className="welcome-feature-num">I</div>
-            <h3>Opencase</h3>
-            <p>Классические комнаты, таймер и серверный выбор победителя.</p>
-            <button className="btn btn-primary btn-large game-pick-btn" onClick={() => onSelectGame('opencase')}>
-              Играть в Opencase
-            </button>
+          <div className="welcome-feature welcome-game-card shell-card shell-card--inner">
+            <div className="welcome-game-card__top">
+              <div className="welcome-feature-num">I</div>
+              <h3>Opencase</h3>
+            </div>
+            <p className="welcome-game-card__desc">
+              Комната, соперники и растущее напряжение: чем ближе финал, тем острее азарт. Сумеете ли вы забрать главный приз?
+            </p>
+            <div className="welcome-game-card__actions">
+              <button type="button" className="btn btn-primary btn-large game-pick-btn" onClick={() => onSelectGame('opencase')}>
+                Играть
+              </button>
+            </div>
           </div>
-          <div className="welcome-feature shell-card shell-card--inner">
-            <div className="welcome-feature-num">II</div>
-            <h3>Mountain Hiking</h3>
-            <p>Горная гонка с раундами, ставками и событийной механикой.</p>
-            <button className="btn btn-primary btn-large game-pick-btn" onClick={() => onSelectGame('mountain')}>
-              Играть в Mountain
-            </button>
+          <div className="welcome-feature welcome-game-card shell-card shell-card--inner">
+            <div className="welcome-game-card__top">
+              <div className="welcome-feature-num">II</div>
+              <h3>Mountain Hiking</h3>
+            </div>
+            <p className="welcome-game-card__desc">
+              Подъём к вершине среди соперников: каждый шаг — на счёт удачи. Кто окажется быстрее и смелее — решит одно мгновение.
+            </p>
+            <div className="welcome-game-card__actions">
+              <button type="button" className="btn btn-primary btn-large game-pick-btn" onClick={() => onSelectGame('mountain')}>
+                Играть
+              </button>
+            </div>
           </div>
-          <div className="welcome-feature shell-card shell-card--inner">
-            <div className="welcome-feature-num">III</div>
-            <h3>Bank</h3>
-            <p>Режим взлома банка с быстрыми розыгрышами и бустами.</p>
-            <button className="btn btn-primary btn-large game-pick-btn" onClick={() => onSelectGame('bank')}>
-              Играть в Bank
-            </button>
+          <div className="welcome-feature welcome-game-card shell-card shell-card--inner">
+            <div className="welcome-game-card__top">
+              <div className="welcome-feature-num">III</div>
+              <h3>Bank</h3>
+            </div>
+            <p className="welcome-game-card__desc">
+              Взлом сейфа, бусты на удачу и мгновенный исход: драйв до последней секунды и шанс сорвать куш раньше остальных.
+            </p>
+            <div className="welcome-game-card__actions">
+              <button type="button" className="btn btn-primary btn-large game-pick-btn" onClick={() => onSelectGame('bank')}>
+                Играть
+              </button>
+            </div>
           </div>
         </div>
       </div>

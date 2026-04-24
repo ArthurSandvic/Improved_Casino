@@ -78,6 +78,15 @@ public class AdminController {
         if (updates.containsKey("entryFee")) {
             room.setEntryFee(((Number) updates.get("entryFee")).longValue());
         }
+        if (updates.containsKey("prizePoolPct")) {
+            room.setPrizePoolPct(((Number) updates.get("prizePoolPct")).intValue());
+        }
+        if (updates.containsKey("boostEnabled")) {
+            room.setBoostEnabled((Boolean) updates.get("boostEnabled"));
+        }
+        if (updates.containsKey("boostCost")) {
+            room.setBoostCost(((Number) updates.get("boostCost")).longValue());
+        }
         if (updates.containsKey("boostMultiplier")) {
             room.setBoostMultiplier(BigDecimal.valueOf(((Number) updates.get("boostMultiplier")).doubleValue()));
         }
@@ -90,29 +99,39 @@ public class AdminController {
         List<String> warnings = new ArrayList<>();
 
         if (dto.defaultMaxSlots() != null && (dto.defaultMaxSlots() < 2 || dto.defaultMaxSlots() > 10)) {
-            errors.add("maxSlots must be between 2 and 10");
+            errors.add("Число мест за столом должно быть от 2 до 10.");
         }
         if (dto.defaultEntryFee() != null && dto.defaultEntryFee() <= 0) {
-            errors.add("entryFee must be positive");
+            errors.add("Взнос за вход должен быть больше нуля.");
         }
         if (dto.defaultPrizePoolPct() != null && (dto.defaultPrizePoolPct() < 0 || dto.defaultPrizePoolPct() > 100)) {
-            errors.add("prizePoolPct must be between 0 and 100");
+            errors.add("Доля призового фонда должна быть в процентах от 0 до 100.");
         }
         if (dto.defaultPrizePoolPct() != null && dto.defaultPrizePoolPct() < 60) {
-            warnings.add("prizePoolPct ниже 60% — комната непривлекательна");
+            warnings.add("Призовой фонд ниже 60% — комната может быть малоинтересной игрокам.");
         }
         if (dto.defaultPrizePoolPct() != null && (100 - dto.defaultPrizePoolPct()) < 5) {
-            warnings.add("Слишком низкая маржа оператора (< 5%)");
+            warnings.add("Слишком низкая доля оператора (меньше 5%) — проверьте экономику.");
         }
         if (dto.defaultBoostMultiplier() != null && dto.defaultBoostMultiplier().doubleValue() > 4.0) {
-            warnings.add("boostMultiplier > 4.0 может дисбалансировать игру");
+            warnings.add("Множитель буста слишком высокий — возможен перекос баланса игры.");
         }
         if (dto.defaultBoostCost() != null && dto.defaultEntryFee() != null
                 && dto.defaultBoostCost() > dto.defaultEntryFee() * 0.8) {
-            warnings.add("boostCost > 80% от entryFee");
+            warnings.add("Стоимость буста больше 80% от входа — буст может быть невыгоден игрокам.");
         }
         if (dto.waitingTimerSeconds() != null && dto.waitingTimerSeconds() < 10) {
-            warnings.add("waitingTimerSeconds < 10 — слишком короткое ожидание");
+            warnings.add("Таймер ожидания короче 10 секунд — игрокам может не хватить времени.");
+        }
+        if (dto.mountainMinBet() != null && dto.mountainMaxBet() != null
+                && dto.mountainMinBet() > dto.mountainMaxBet()) {
+            errors.add("В Mountain минимальная ставка не может быть больше максимальной.");
+        }
+        if (dto.bankFilterEntryFee() != null && dto.bankFilterEntryFee() <= 0) {
+            errors.add("Цена входа по умолчанию в Bank должна быть больше нуля.");
+        }
+        if (dto.bankFilterSeats() != null && (dto.bankFilterSeats() < 2 || dto.bankFilterSeats() > 10)) {
+            errors.add("Число мест за столом в Bank должно быть от 2 до 10.");
         }
 
         double houseEdge = dto.defaultPrizePoolPct() != null
@@ -126,7 +145,9 @@ public class AdminController {
         return new AdminConfigDto(
             cfg.getDefaultMaxSlots(), cfg.getDefaultEntryFee(), cfg.getDefaultPrizePoolPct(),
             cfg.getDefaultBoostEnabled(), cfg.getDefaultBoostCost(), cfg.getDefaultBoostMultiplier(),
-            cfg.getWaitingTimerSeconds());
+            cfg.getWaitingTimerSeconds(),
+            cfg.getMountainMinBet(), cfg.getMountainMaxBet(),
+            cfg.getBankFilterEntryFee(), cfg.getBankFilterSeats());
     }
 
     private void applyDto(AdminConfig cfg, AdminConfigDto dto) {
@@ -137,5 +158,9 @@ public class AdminController {
         if (dto.defaultBoostCost() != null) cfg.setDefaultBoostCost(dto.defaultBoostCost());
         if (dto.defaultBoostMultiplier() != null) cfg.setDefaultBoostMultiplier(dto.defaultBoostMultiplier());
         if (dto.waitingTimerSeconds() != null) cfg.setWaitingTimerSeconds(dto.waitingTimerSeconds());
+        if (dto.mountainMinBet() != null) cfg.setMountainMinBet(dto.mountainMinBet());
+        if (dto.mountainMaxBet() != null) cfg.setMountainMaxBet(dto.mountainMaxBet());
+        if (dto.bankFilterEntryFee() != null) cfg.setBankFilterEntryFee(dto.bankFilterEntryFee());
+        if (dto.bankFilterSeats() != null) cfg.setBankFilterSeats(dto.bankFilterSeats());
     }
 }

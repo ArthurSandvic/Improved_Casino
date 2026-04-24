@@ -16,8 +16,9 @@ public interface RoomParticipantRepository extends JpaRepository<RoomParticipant
     Optional<RoomParticipant> findByRoom_IdAndUser_Id(Long roomId, Long userId);
     boolean existsByRoom_IdAndUser_Id(Long roomId, Long userId);
 
-    @Query("SELECT rp FROM RoomParticipant rp " +
-           "JOIN rp.room r " +
+    /** JOIN FETCH: при open-in-view=false ленивый getRoom() после выхода из @Transactional дал бы LazyInitializationException. */
+    @Query("SELECT DISTINCT rp FROM RoomParticipant rp " +
+           "JOIN FETCH rp.room r " +
            "WHERE rp.user.id = :userId " +
            "AND r.status IN :statuses")
     List<RoomParticipant> findActiveByUserId(

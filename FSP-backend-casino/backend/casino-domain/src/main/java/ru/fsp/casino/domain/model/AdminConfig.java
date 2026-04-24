@@ -45,6 +45,23 @@ public class AdminConfig {
     @Builder.Default
     private Integer waitingTimerSeconds = 60;
 
+    /** Дефолт мин. ставки в Mountain (создание комнаты / подсказки). */
+    @Column(nullable = false)
+    @Builder.Default
+    private Integer mountainMinBet = 50;
+
+    @Column(nullable = false)
+    @Builder.Default
+    private Integer mountainMaxBet = 400;
+
+    @Column(nullable = false)
+    @Builder.Default
+    private Integer bankFilterEntryFee = 100;
+
+    @Column(nullable = false)
+    @Builder.Default
+    private Integer bankFilterSeats = 6;
+
     @Builder.Default
     private Instant updatedAt = Instant.now();
 }

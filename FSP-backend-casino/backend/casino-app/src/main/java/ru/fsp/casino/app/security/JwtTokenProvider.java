@@ -9,6 +9,8 @@ import ru.fsp.casino.domain.model.User;
 
 import javax.crypto.SecretKey;
 import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.Date;
 
 @Component
@@ -17,8 +19,22 @@ public class JwtTokenProvider {
 
     private final JwtProperties jwtProperties;
 
+    /**
+     * HS256 (jjwt) требует ключ ≥ 256 бит. Строка короче 32 байт в UTF-8
+     * детерминированно разворачивается в 32 байта через SHA-256 (удобно для dev/.env).
+     */
     private SecretKey key() {
-        return Keys.hmacShaKeyFor(jwtProperties.getSecret().getBytes(StandardCharsets.UTF_8));
+        byte[] raw = jwtProperties.getSecret().getBytes(StandardCharsets.UTF_8);
+        byte[] keyBytes = raw.length >= 32 ? raw : sha256(raw);
+        return Keys.hmacShaKeyFor(keyBytes);
+    }
+
+    private static byte[] sha256(byte[] input) {
+        try {
+            return MessageDigest.getInstance("SHA-256").digest(input);
+        } catch (NoSuchAlgorithmException e) {
+            throw new IllegalStateException(e);
+        }
     }
 
     public String generateToken(User user) {

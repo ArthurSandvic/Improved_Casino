@@ -1,21 +1,5 @@
 export const legacyMarkup = `
 <main class="app">
-  <header class="panel">
-    <div class="header-top">
-      <div>
-        <h1>Casino FSP MVP</h1>
-      </div>
-      <div class="header-top-actions" style="display:flex;flex-wrap:wrap;gap:0.5rem;align-items:center;justify-content:flex-end;">
-        <button type="button" id="openBankAdminBtn" class="secondary">Админ комнаты</button>
-        <button type="button" id="openServerAdminBtn" class="secondary" style="display:none;">Платформа</button>
-        <button id="openProfileBtn" class="profile-btn">
-          <div class="profile-avatar-small"></div>
-          <span id="headerUserName">VIP_Player_1</span>
-        </button>
-      </div>
-    </div>
-  </header>
-
   <section id="page-bankHack" class="page active">
     <div id="view-selection">
       <div class="grid two">
@@ -56,91 +40,6 @@ export const legacyMarkup = `
         </div>
         <div id="roomsList" class="room-list"></div>
       </section>
-    </div>
-
-    <div id="view-profile" style="display: none;">
-      <div style="margin-bottom: 1rem;">
-        <button id="backFromProfileBtn" class="secondary">← На начальную страницу</button>
-      </div>
-      <div class="profile-dashboard">
-        <div class="profile-left">
-          <div class="profile-card panel">
-            <div class="profile-avatar-large"></div>
-            <h2 id="profilePageName" class="profile-name">VIP_Player_1</h2>
-            <p id="profilePageRole" class="profile-role">Gold VIP</p>
-            <div class="profile-details">
-              <div class="detail-item"><span>Email:</span> <strong id="profilePageEmail">player@casino.fsp</strong></div>
-              <div class="detail-item"><span>Телефон:</span> <strong id="profilePagePhone">+7 (999) 000-00-00</strong></div>
-              <div class="detail-item"><span>Статус аккаунта:</span> <strong style="color: var(--success-color);">Активен</strong></div>
-            </div>
-            <button id="openEditProfileBtn" class="primary full-width">Редактировать профиль</button>
-          </div>
-        </div>
-        <div class="profile-right">
-          <div class="profile-accounts panel">
-            <h2>Игровые счета</h2>
-            <div class="account-card primary-acc">
-              <div class="acc-info">
-                <span>Доступный баланс</span>
-                <strong id="profileBalanceCount">0 б.</strong>
-              </div>
-              <div class="acc-actions">
-                <button class="primary">Пополнить</button>
-                <button class="secondary">Вывести</button>
-              </div>
-            </div>
-            <div class="account-card secondary-acc">
-              <div class="acc-info">
-                <span>Зарезервировано</span>
-                <strong id="profileReservedCount">0 б.</strong>
-              </div>
-              <div class="acc-actions">
-                <button class="secondary" disabled>В игре</button>
-              </div>
-            </div>
-          </div>
-          <div class="profile-stats panel">
-            <h2>Моя статистика</h2>
-            <div class="stat-list">
-              <div class="stat-item">
-                <span class="stat-icon">🎮</span>
-                <div class="stat-text">Сыграно игр</div>
-                <strong id="profileGamesPlayed">0</strong>
-              </div>
-              <div class="stat-item">
-                <span class="stat-icon">🏆</span>
-                <div class="stat-text">Побед</div>
-                <strong id="profileGamesWon">0</strong>
-              </div>
-              <div class="stat-item">
-                <span class="stat-icon">💰</span>
-                <div class="stat-text">Общий выигрыш</div>
-                <strong id="profileTotalWon">0 б.</strong>
-              </div>
-              <div class="stat-item">
-                <span class="stat-icon">⚡</span>
-                <div class="stat-text">Куплено бустов</div>
-                <strong id="profileBoostsBought">0</strong>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <div id="editProfileModal" class="modal-overlay" style="display: none;">
-      <div class="modal-content panel">
-        <h2>Редактировать профиль</h2>
-        <div class="form-grid">
-          <label>Имя пользователя <input id="editProfileName" type="text" /></label>
-          <label>Email <input id="editProfileEmail" type="email" /></label>
-          <label>Телефон <input id="editProfilePhone" type="text" /></label>
-        </div>
-        <div class="actions" style="justify-content: flex-end; margin-top: 1.5rem;">
-          <button id="cancelEditProfileBtn" class="secondary">Отмена</button>
-          <button id="saveProfileBtn" class="primary">Сохранить</button>
-        </div>
-      </div>
     </div>
 
     <div id="view-room" style="display: none;">
